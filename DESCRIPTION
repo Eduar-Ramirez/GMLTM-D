@@ -1,0 +1,42 @@
+Package: GMLTM
+Type: Package
+Title: Generalized Multicomponent Latent Trait Model for Diagnosis
+Version: 0.1.0
+Authors@R: c(
+    person("Eduar", "Ramirez", email = "edrami02@ucm.es", role = c("aut", "cre")),
+    person("Marcos", "Jimenez", email = "marcosjnezhquez@gmail.com", role = "aut"),
+    person("Vithor R.", "Franco", role = "aut"),
+    person("Jesus", "Alvarado", role = "aut")
+    )
+Description: Provides Bayesian estimation of Item Response Theory models that
+    decompose item difficulty into cognitive operations or rules. Implements the
+    Linear Logistic Test Model (LLTM; Fischer, 1973), the Multicomponent Latent
+    Trait Model for Diagnosis (MLTM-D; Embretson & Yang, 2013), and the
+    Generalized Multicomponent Latent Trait Model for Diagnosis (GMLTM-D;
+    Ramirez et al., 2024). All models are estimated via Hamiltonian Monte Carlo
+    using Stan. Includes tools for model validation, reliability estimation,
+    and visualization of item characteristic curves. Supports user-defined
+    prior distributions for all model parameters.
+License: GPL (>= 3)
+URL: https://github.com/Eduar-Ramirez/GMLTM-D
+BugReports: https://github.com/Eduar-Ramirez/GMLTM-D/issues
+Encoding: UTF-8
+LazyData: true
+Depends: R (>= 4.1.0)
+Imports:
+    rstan (>= 2.21.0),
+    methods,
+    ggplot2,
+    gridExtra,
+    grid,
+    utils,
+    parallel,
+    loo,
+    RColorBrewer
+Suggests:
+    testthat (>= 3.0.0),
+    knitr,
+    rmarkdown
+SystemRequirements: C++17, GNU make
+VignetteBuilder: knitr
+RoxygenNote: 7.3.2

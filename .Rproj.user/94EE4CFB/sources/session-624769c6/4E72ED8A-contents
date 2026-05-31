@@ -1,0 +1,26 @@
+library(roxygen2)
+
+roxygenize()
+# En la raíz de tu proyecto
+devtools::document()
+devtools::install()
+
+library(GMLTM)
+?model_validation
+
+ls("package:GMLTM")
+
+library(cmdstanr)
+
+# Cargar el modelo Stan
+stan_file <- "/Users/eduarramirezriveros/Documents/GMLTM-master/inst/GMLTM2.stan"  # Ruta al archivo .stan
+model <- cmdstan_model(stan_file)
+
+# Compilar el modelo (esto crea un objeto que se puede usar)
+model$compile()
+
+
+file.remove("inst/.Rhistory")
+file.remove("inst/.RData")
+
+devtools::document()

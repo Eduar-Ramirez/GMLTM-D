@@ -1,0 +1,16 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^\.Rhistory$
+^\.RData$
+^\.Rapp\.history$
+^\.DS_Store$
+^README\.Rmd$
+^cran-comments\.md$
+^\.github$
+^doc$
+^Meta$
+^\.claude$
+^LICENSE$
+^inst/\.RData$
+^inst/\.Rhistory$
+^inst/\.Rapp\.history$

@@ -1,0 +1,49 @@
+devtools::install(quick = TRUE)
+
+library(GMLTM)
+data(analogy)
+
+# Define la matriz Q del ejemplo de la documentación
+Q <- structure(c(0, 0, 1, 0, 1, 0, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 1,
+                 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1,
+                 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 0,
+                 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1,
+                 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1,
+                 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1,
+                 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1),
+               dim = c(27L, 5L),
+               dimnames = list(NULL, c("rot_fig", "rot_trap", "reflection",
+                                       "subt_seg", "mov_point")))
+
+# Prueba MUY rápida — pocas iteraciones solo para ver si conecta con Stan
+fit_test <- LLTM(analogy, Q,
+                 iters = 100, iter_warmup = 50, chains = 1)
+
+fit_test$EAP$eta      # dificultades de reglas
+fit_test$EAP$beta     # dificultades de ítems
+reliability(fit_test) # confiabilidad
+
+
+
+
+dotR <- file.path(Sys.getenv("HOME"), ".R")
+if (!file.exists(dotR)) dir.create(dotR)
+M <- file.path(dotR, "Makevars")
+cat("CC=/opt/homebrew/bin/gcc-15\nCXX=/opt/homebrew/bin/g++-15\nFC=/opt/homebrew/bin/gfortran-15\nF77=/opt/homebrew/bin/gfortran-15\n", file = M)
+
+readLines("~/.R/Makevars")
+
+install.packages("pkgbuild")
+pkgbuild::check_build_tools(debug = TRUE)
+
+pkgbuild::check_build_tools(debug = TRUE)
+
+file.remove("man/grapes-or-or-grapes.Rd")
+file.remove("man/grapes-plus-grapes.Rd")
+
+
+devtools::document()
+
+rcmdcheck::rcmdcheck(args = "--as-cran")
+
+

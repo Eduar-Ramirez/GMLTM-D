@@ -1,0 +1,18 @@
+#' Analogy items dataset
+#'
+#' Binary item response data from a figural analogies test used to illustrate
+#' the LLTM, MLTM-D, and GMLTM-D models.
+#'
+#' @format A matrix with 149 rows (subjects) and 27 columns (items), where
+#'   each cell contains a binary response (0 = incorrect, 1 = correct).
+#'
+#' @source Blum, D., Holling, H., Galibert, M. S., & Forthmann, B. (2016).
+#'   Task difficulty prediction of figural analogies.
+#'   \emph{Intelligence}, 56, 72--81. \doi{10.1016/j.intell.2016.03.001}
+#'
+#' @references
+#' Ramirez, E. S., Jimenez, M., Franco, V. R., & Alvarado, J. M. (2024).
+#' Delving into the complexity of analogical reasoning: A detailed exploration
+#' with the Generalized Multicomponent Latent Trait Model for Diagnosis.
+#' \emph{Journal of Intelligence}, 12, 67. \doi{10.3390/jintelligence12070067}
+"analogy"

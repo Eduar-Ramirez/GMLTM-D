@@ -1,0 +1,294 @@
+---
+title: "Introduction to GMLTM"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Introduction to GMLTM}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+## Overview
+
+The **GMLTM** package implements three Bayesian Item Response Theory models for
+cognitive diagnosis:
+
+- **LLTM** — Linear Logistic Test Model (Fischer, 1973)
+- **MLTM-D** — Multicomponent Latent Trait Model for Diagnosis (Embretson & Yang, 2013)
+- **GMLTM-D** — Generalized Multicomponent Latent Trait Model for Diagnosis (Ramírez et al., 2024)
+
+All models decompose item difficulty into cognitive operations (rules), making them
+suitable for studying the cognitive components underlying test performance. Estimation
+uses Hamiltonian Monte Carlo via `rstan`.
+
+## Installation
+
+```{r, eval=FALSE}
+install.packages("GMLTM")
+```
+
+## The Q matrix and components
+
+All models require a **Q matrix** (items × rules) indicating which cognitive rules each
+item involves. The MLTM-D and GMLTM-D additionally require a `components` list grouping
+rules into higher-level dimensions.
+
+```{r, eval=FALSE}
+# Example Q matrix: 5 items, 3 rules
+Q <- matrix(c(1,0,1,
+              0,1,1,
+              1,1,0,
+              1,0,0,
+              0,1,0), nrow = 5, byrow = TRUE)
+
+# Group rules into 2 components
+components <- list(comp1 = c(1, 2), comp2 = 3)
+```
+
+## Basic usage — LLTM
+
+```{r, eval=FALSE}
+library(GMLTM)
+data(analogy)
+
+Q <- matrix(...)  # define your Q matrix (items x rules)
+
+fit <- LLTM(analogy, Q,
+            iters = 2000, iter_warmup = 500, chains = 2)
+
+fit$EAP$eta      # rule difficulty estimates
+fit$EAP$beta     # item difficulty estimates
+reliability(fit) # marginal reliability
+ppchecks(fit)    # posterior predictive check plot
+```
+
+## Basic usage — GMLTM-D
+
+```{r, eval=FALSE}
+components <- list(global = c(1, 2, 3), local = c(4, 5))
+
+fit <- GMLTM(analogy, Q, components,
+             iters = 2000, iter_warmup = 500, chains = 2)
+
+fit$EAP$eta      # rule difficulties per component
+fit$EAP$alpha    # item discriminations per component
+fit$EAP$guessing # item guessing parameters
+reliability(fit) # marginal reliability per component
+```
+
+## Customising prior distributions
+
+All model functions accept a `priors` argument. Only the elements to change need to
+be specified; unspecified elements retain their defaults.
+
+```{r, eval=FALSE}
+# More diffuse prior on rule difficulties
+fit_diffuse <- LLTM(analogy, Q,
+                    priors = list(eta = list(sigma = 3)))
+
+# Moderately informative prior for guessing in GMLTM
+fit_gmltm <- GMLTM(analogy, Q, components,
+                   priors = list(c = list(shape1 = 2, shape2 = 10)))
+
+# Uniform prior for guessing (least informative)
+fit_uniform_c <- GMLTM(analogy, Q, components,
+                       priors = list(c = list(shape1 = 1, shape2 = 1)))
+```
+
+### Available priors per model
+
+| Parameter | Distribution | Models |
+|-----------|-------------|--------|
+| `theta` (ability) | Normal(mu, sigma) | All |
+| `eta` (rule difficulty) | Normal(mu, sigma) | All |
+| `alpha` (discrimination) | half-Normal(sigma) | MLTM, GMLTM |
+| `c` (guessing) | Beta(shape1, shape2) | GMLTM |
+
+## Model comparison with LOO-CV
+
+```{r, eval=FALSE}
+# Fit two models with different priors
+fit1 <- GMLTM(analogy, Q, components, iters = 2000, iter_warmup = 500)
+fit2 <- GMLTM(analogy, Q, components,
+              priors = list(c = list(shape1 = 1, shape2 = 1)),
+              iters = 2000, iter_warmup = 500)
+
+# Compare with LOO
+result <- compute_model_validation(list(fit1, fit2))
+print(result$Summary)
+```
+
+## Customizing prior distributions
+
+All models in GMLTM support user-defined prior distributions via the
+`priors` argument. This is useful for prior sensitivity analysis —
+refitting models with different priors to assess how much the posteriors
+change.
+
+### How priors work in GMLTM
+
+Priors are passed as a **named list** where each element corresponds to
+a model parameter. You only need to specify the parameters you want to
+change; unspecified ones keep their defaults.
+
+The general structure is:
+
+```{r, eval=FALSE}
+priors = list(
+  parameter_name = list(hyperparameter1 = value, hyperparameter2 = value)
+)
+```
+
+### LLTM priors
+
+The LLTM has two parameters with customizable priors:
+
+| Parameter | Distribution | Hyperparameters | Default |
+|-----------|-------------|-----------------|---------|
+| `theta` (ability) | Normal | `mu`, `sigma` | `mu=0, sigma=1` |
+| `eta` (rule difficulty) | Normal | `mu`, `sigma` | `mu=0, sigma=1` |
+
+```{r, eval=FALSE}
+library(GMLTM)
+data(analogy)
+
+# Default priors (weakly informative)
+fit_default <- LLTM(analogy, Q,
+                    iters = 2000, iter_warmup = 500, chains = 2)
+
+# More diffuse prior on rule difficulties (eta)
+fit_diffuse <- LLTM(analogy, Q,
+                    iters = 2000, iter_warmup = 500, chains = 2,
+                    priors = list(eta = list(mu = 0, sigma = 3)))
+
+# Informative prior centered on positive difficulty
+fit_informed <- LLTM(analogy, Q,
+                     iters = 2000, iter_warmup = 500, chains = 2,
+                     priors = list(eta = list(mu = 1, sigma = 0.5)))
+```
+
+### MLTM priors
+
+The MLTM adds discrimination parameters (`alpha`):
+
+| Parameter | Distribution | Hyperparameters | Default |
+|-----------|-------------|-----------------|---------|
+| `theta` (ability) | Normal | `mu`, `sigma` | `mu=0, sigma=1` |
+| `eta` (rule difficulty) | Normal | `mu`, `sigma` | `mu=0, sigma=1` |
+| `alpha` (discrimination) | Half-Normal | `sigma` | `sigma=1` |
+
+Note: `alpha` uses a **half-Normal** prior (truncated at 0) to enforce
+positive discrimination. Only `sigma` is meaningful; `mu` is ignored.
+
+```{r, eval=FALSE}
+components <- list(global = c(1, 2, 3), local = c(4, 5))
+
+# Wider prior for discrimination
+fit_mltm <- MLTM(analogy, Q, components,
+                 iters = 2000, iter_warmup = 500, chains = 2,
+                 priors = list(
+                   theta = list(mu = 0, sigma = 1),
+                   alpha = list(sigma = 2)
+                 ))
+```
+
+### GMLTM-D priors
+
+The GMLTM-D adds a guessing parameter (`c`):
+
+| Parameter | Distribution | Hyperparameters | Default |
+|-----------|-------------|-----------------|---------|
+| `theta` (ability) | Normal | `mu`, `sigma` | `mu=0, sigma=1` |
+| `eta` (rule difficulty) | Normal | `mu`, `sigma` | `mu=0, sigma=1` |
+| `alpha` (discrimination) | Half-Normal | `sigma` | `sigma=1` |
+| `c` (guessing) | Beta | `shape1`, `shape2` | `shape1=3, shape2=20` |
+
+The default Beta(3, 20) prior for guessing concentrates probability
+below 0.20, consistent with typical multiple-choice guessing rates.
+
+```{r, eval=FALSE}
+# Default: Beta(3,20) -- conservative guessing prior
+fit_gmltm <- GMLTM(analogy, Q, components,
+                   iters = 2000, iter_warmup = 500, chains = 2)
+
+# Uniform prior for guessing -- no prior assumption
+fit_uniform_c <- GMLTM(analogy, Q, components,
+                       iters = 2000, iter_warmup = 500, chains = 2,
+                       priors = list(c = list(shape1 = 1, shape2 = 1)))
+
+# Moderately informative prior
+fit_moderate_c <- GMLTM(analogy, Q, components,
+                        iters = 2000, iter_warmup = 500, chains = 2,
+                        priors = list(c = list(shape1 = 2, shape2 = 10)))
+```
+
+### Prior sensitivity analysis
+
+A good practice is to refit the model with at least two different prior
+specifications and compare the posterior means:
+
+```{r, eval=FALSE}
+# Conservative priors
+fit_conservative <- LLTM(analogy, Q, chains = 2, iters = 2000,
+                         priors = list(eta = list(sigma = 1)))
+
+# Diffuse priors
+fit_diffuse <- LLTM(analogy, Q, chains = 2, iters = 2000,
+                    priors = list(eta = list(sigma = 5)))
+
+# Compare eta estimates
+cbind(
+  conservative = fit_conservative$EAP$eta,
+  diffuse      = fit_diffuse$EAP$eta
+)
+```
+
+If the estimates are similar, your results are robust to prior choice.
+Large differences indicate the data are not very informative and
+results should be interpreted with caution.
+
+### GMLTM default priors
+
+The default priors in `GMLTM()` are weakly informative and suitable
+for most applications:
+
+| Parameter | Distribution | Default |
+|-----------|-------------|---------|
+| theta (ability) | Normal | mu=0, sigma=1 |
+| eta (rule difficulty) | Normal | mu=0, sigma=1 |
+| alpha (discrimination) | Half-Normal | sigma=1 |
+| c (guessing) | Beta | shape1=3, shape2=20 |
+
+To replicate moderately diffuse priors (formerly GMLTM1):
+
+```{r, eval=FALSE}
+fit_gmltm1_style <- GMLTM(analogy, Q, components,
+  priors = list(
+    theta = list(mu = 0, sigma = 2),
+    eta   = list(mu = 0, sigma = 2),
+    c     = list(shape1 = 2, shape2 = 5)
+  ))
+```
+
+To replicate diffuse priors (formerly GMLTM2):
+
+```{r, eval=FALSE}
+fit_gmltm2_style <- GMLTM(analogy, Q, components,
+  priors = list(
+    theta = list(mu = 0, sigma = 5),
+    eta   = list(mu = 0, sigma = 5),
+    c     = list(shape1 = 1, shape2 = 1)
+  ))
+```
+
+## References
+
+Fischer, G. H. (1973). The linear logistic test model as an instrument in educational
+research. *Acta Psychologica*, 37(6), 359--374.
+
+Embretson, S. E., & Yang, X. (2013). A multicomponent latent trait model for diagnosis.
+*Psychometrika*, 78, 14--36.
+
+Ramírez, E. S., Jiménez, M., Franco, V. R., & Alvarado, J. M. (2024).
+Delving into the complexity of analogical reasoning: A detailed exploration with the
+Generalized Multicomponent Latent Trait Model for Diagnosis.
+*Journal of Intelligence*, 12, 67. https://doi.org/10.3390/jintelligence12070067

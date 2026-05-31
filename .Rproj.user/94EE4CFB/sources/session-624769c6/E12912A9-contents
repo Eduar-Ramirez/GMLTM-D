@@ -1,0 +1,436 @@
+# Prompt para Claude Code: Corregir errores CRAN + documentar priors (v3)
+
+## Contexto
+
+Paquete R GMLTM en:
+```
+/Users/eduarramirezriveros/Documents/GMLTM-master/
+```
+
+El check `rcmdcheck::rcmdcheck(args = "--as-cran")` arroja **2 errores, 
+7 warnings y 7 notes**. Corrígelos todos en orden. Al final documenta 
+la función de priors personalizados en la vignette.
+
+---
+
+## ERROR 1 — Ejemplo con variables no definidas en model_validation.R
+
+En `R/model_validation.R` el bloque `@examples` llama a `GMLTM()` usando 
+variables `dataset`, `Q` y `components` que no están definidas.
+
+Abre `R/model_validation.R`, encuentra el bloque `@examples` de la función 
+`compute_model_validation` y reemplázalo completamente con:
+
+```r
+#' @examples
+#' \donttest{
+#'   data(analogy)
+#'   Q <- structure(
+#'     c(0,0,1,0,1,0,1,0,1,1,0,1,1,1,0,1,1,1,0,1,0,1,0,0,1,0,1,
+#'       1,0,0,0,0,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,0,
+#'       1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,1,0,1,0,1,1,0,1,0,0,0,
+#'       0,0,0,0,0,0,1,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,0,0,0,0,0,
+#'       1,0,0,0,1,1,0,1,1,1,1,1,1,1,0,1,1,0,1,1,1,1,0,1),
+#'     dim = c(27L, 5L),
+#'     dimnames = list(NULL, c("rot_fig","rot_trap","reflection",
+#'                             "subt_seg","mov_point")))
+#'   components <- list(global = c(1, 2, 3), local = c(4, 5))
+#'   fit1 <- GMLTM(data = analogy, Q = Q, components = components,
+#'                 iters = 200, iter_warmup = 100, chains = 1)
+#'   compute_model_validation(fit1)
+#' }
+```
+
+---
+
+## ERROR/WARNING 2 — grapes-or-or-grapes.Rd y grapes-plus-grapes.Rd 
+persisten
+
+Los archivos `.Rd` se regeneran porque los operadores tienen `@export`. 
+
+**Paso A:** Busca en todos los archivos `R/` las definiciones de `%||%` 
+y `%+%` con este comando:
+```bash
+grep -rn "%||%\|%+%" /Users/eduarramirezriveros/Documents/GMLTM-master/R/
+```
+
+**Paso B:** En cada archivo donde aparezcan, elimina la línea `#' @export` 
+de su documentación roxygen. Si no tienen documentación roxygen, añade:
+```r
+#' @noRd
+```
+justo antes de la definición de la función.
+
+**Paso C:** Elimina los archivos:
+```bash
+rm -f man/grapes-or-or-grapes.Rd
+rm -f man/grapes-plus-grapes.Rd
+```
+
+---
+
+## WARNING 3 — Caracteres no-ASCII en archivos R
+
+Los archivos `R/Q_extended.R`, `R/conditional_reliability.R` y 
+`R/reliability.R` contienen caracteres griegos directos.
+
+En **comentarios de código** (`# comentario`), reemplaza:
+- `α` → `alpha`
+- `β` → `beta`
+- `θ` → `theta`
+- `η` → `eta`
+- `μ` → `mu`
+- `σ` → `sigma`
+
+En **texto de documentación roxygen** (`#' texto`), reemplaza con notación 
+LaTeX:
+- `α` → `\eqn{\alpha}`
+- `β` → `\eqn{\beta}`
+- `θ` → `\eqn{\theta}`
+- `η` → `\eqn{\eta}`
+
+Usa este comando para encontrarlos todos:
+```bash
+grep -rn "[^\x00-\x7F]" /Users/eduarramirezriveros/Documents/GMLTM-master/R/
+```
+
+---
+
+## WARNING 4 — Orden de argumentos chains/iter_warmup en @usage
+
+En las funciones LLTM, MLTM, GMLTM, GMLTM1, GMLTM2 el `@usage` en 
+roxygen dice `iter_warmup` antes que `chains`, pero la firma real del 
+código tiene `chains` antes que `iter_warmup`.
+
+En cada archivo `R/LLTM.R`, `R/MLTM.R`, `R/GMLTM.R`, `R/GMLTM1.R`, 
+`R/GMLTM2.R`, encuentra la línea `@usage` y corrígela para que coincida 
+exactamente con la firma de la función. Por ejemplo en LLTM:
+
+```r
+#' @usage
+#' LLTM(data, Q, iters = 2000, chains = 2, iter_warmup = 1000,
+#'      quantiles = c(0.025, 0.50, 0.975),
+#'      cores = parallel::detectCores() - 1,
+#'      priors = list(theta = list(mu = 0, sigma = 1),
+#'                    eta   = list(mu = 0, sigma = 1)), ...)
+```
+
+Ajusta según la firma real de cada función.
+
+---
+
+## WARNING 5 — RColorBrewer no declarado en DESCRIPTION
+
+**Paso A:** Añade en `DESCRIPTION` dentro de `Imports:`:
+```
+    RColorBrewer
+```
+
+**Paso B:** Encuentra qué archivo R usa RColorBrewer:
+```bash
+grep -rn "RColorBrewer\|brewer.pal" /Users/eduarramirezriveros/Documents/GMLTM-master/R/
+```
+
+**Paso C:** En ese archivo añade al bloque roxygen:
+```r
+#' @importFrom RColorBrewer brewer.pal
+```
+
+---
+
+## WARNING 6 — Funciones de stats/grDevices/graphics sin importFrom
+
+Crea el archivo `R/utils-imports.R` con este contenido exacto:
+
+```r
+#' @importFrom stats cor cov dbinom median plogis quantile rbinom sd var
+#' @importFrom grDevices adjustcolor colorRampPalette dev.off png rainbow rgb
+#' @importFrom graphics abline axis contour grid image legend lines mtext points polygon segments text
+#' @importFrom utils write.csv
+#' @keywords internal
+NULL
+```
+
+---
+
+## WARNING 7 — Argumentos no documentados en varios .Rd
+
+Los siguientes archivos tienen argumentos en el código que no están 
+documentados en roxygen. Añade `@param` para cada argumento faltante:
+
+- `compare_conditional_reliability`: añade `@param cond_rel_obj` y 
+  `@param theta_points`
+- `integrate_with_enhanced_reliability`: añade `@param fit`, 
+  `@param include_conditional_tif`, `@param theta_range`, `@param ...`
+- `plot.conditional_reliability_tif`: añade `@param x` y `@param ...`
+- `plot_all_components`: añade `@param results`, `@param plot_type`, 
+  `@param include_ci`, `@param color_scheme`, `@param save_plots`, 
+  `@param output_dir`, `@param ...`
+- `plot_components_comparison`: añade `@param results`, `@param include_ci`,
+  `@param show_optimal_points`, `@param add_reference_lines`, 
+  `@param color_palette`, `@param save_plot`, `@param filename`, `@param ...`
+- `print.enhanced_mltm_reliability`: añade `@param x`, `@param digits`, 
+  `@param ...`
+- `print.reliability_data_quality`: añade `@param x`, `@param ...`
+- `print.reliability_profile`: añade `@param x`, `@param ...`
+- `reliability_profile`: añade `@param cond_rel_obj`
+- `summary.conditional_reliability_tif`: añade `@param object`, 
+  `@param digits`, `@param ...`
+
+Para cada `@param` añade una descripción breve pero informativa.
+
+---
+
+## NOTE 1 — assign() al entorno global en Q_extended.R
+
+En `R/Q_extended.R` hay varias llamadas a `assign(..., envir = .GlobalEnv)`. 
+CRAN prohíbe modificar el entorno global.
+
+**Paso A:** Al inicio del archivo, después de los comentarios de cabecera, 
+añade:
+```r
+.GMLTM_env <- new.env(parent = emptyenv())
+```
+
+**Paso B:** Reemplaza cada:
+```r
+assign("nombre_objeto", valor, envir = .GlobalEnv)
+```
+por:
+```r
+.GMLTM_env$nombre_objeto <- valor
+```
+
+Las asignaciones específicas a cambiar son:
+- `assign("Q_extended_original", ...)` 
+- `assign("M_list_original", ...)`
+- `assign("Q_extended_failed", ...)`
+- `assign("M_list_failed", ...)`
+- `assign("Q_extended", ...)`
+- `assign("M_list", ...)`
+
+---
+
+## NOTE 2 — class() comparado con string
+
+En `R/reliability.R` y cualquier otro archivo que tenga:
+```r
+if (class(objeto) == "NOMBRE_CLASE")
+```
+
+Reemplaza por:
+```r
+if (inherits(objeto, "NOMBRE_CLASE"))
+```
+
+Búscalos con:
+```bash
+grep -rn 'class(.*) ==' /Users/eduarramirezriveros/Documents/GMLTM-master/R/
+```
+
+---
+
+## NOTE 3 — LICENSE no mencionado en DESCRIPTION
+
+En `DESCRIPTION` cambia:
+```
+License: GPL-3
+```
+por:
+```
+License: GPL (>= 3)
+```
+
+Luego añade al `.Rbuildignore`:
+```
+^LICENSE$
+```
+
+---
+
+## NOTE 4 — GitHub URL 404
+
+En `DESCRIPTION` usa el repositorio de Marcos que sí existe hasta que 
+Eduar cree el suyo:
+```
+URL: https://github.com/marcosjnez/GMLTM
+BugReports: https://github.com/marcosjnez/GMLTM/issues
+```
+
+---
+
+## NOTE 5 — Carácter inválido en compute_model_validation.Rd
+
+En `R/model_validation.R` busca comillas tipográficas `"` `"` o caracteres 
+especiales como `–` (guión largo) y reemplázalos por comillas ASCII 
+normales `"` y guión simple `-`.
+
+---
+
+## TAREA FINAL — Documentar priors personalizados en la vignette
+
+Abre `vignettes/GMLTM-intro.Rmd` y añade una sección completa sobre 
+priors personalizados. Insértala después de la sección "Basic usage" 
+y antes de "References". El contenido debe ser:
+
+```rmd
+## Customizing prior distributions
+
+All models in GMLTM support user-defined prior distributions via the
+`priors` argument. This is useful for prior sensitivity analysis —
+refitting models with different priors to assess how much the posteriors
+change.
+
+### How priors work in GMLTM
+
+Priors are passed as a **named list** where each element corresponds to
+a model parameter. You only need to specify the parameters you want to
+change; unspecified ones keep their defaults.
+
+The general structure is:
+
+```{r, eval=FALSE}
+priors = list(
+  parameter_name = list(hyperparameter1 = value, hyperparameter2 = value)
+)
+```
+
+### LLTM priors
+
+The LLTM has two parameters with customizable priors:
+
+| Parameter | Distribution | Hyperparameters | Default |
+|-----------|-------------|-----------------|---------|
+| `theta` (ability) | Normal | `mu`, `sigma` | `mu=0, sigma=1` |
+| `eta` (rule difficulty) | Normal | `mu`, `sigma` | `mu=0, sigma=1` |
+
+```{r, eval=FALSE}
+library(GMLTM)
+data(analogy)
+
+# Default priors (weakly informative)
+fit_default <- LLTM(analogy, Q,
+                    iters = 2000, iter_warmup = 500, chains = 2)
+
+# More diffuse prior on rule difficulties (eta)
+fit_diffuse <- LLTM(analogy, Q,
+                    iters = 2000, iter_warmup = 500, chains = 2,
+                    priors = list(eta = list(mu = 0, sigma = 3)))
+
+# Informative prior centered on positive difficulty
+fit_informed <- LLTM(analogy, Q,
+                     iters = 2000, iter_warmup = 500, chains = 2,
+                     priors = list(eta = list(mu = 1, sigma = 0.5)))
+```
+
+### MLTM priors
+
+The MLTM adds discrimination parameters (`alpha`):
+
+| Parameter | Distribution | Hyperparameters | Default |
+|-----------|-------------|-----------------|---------|
+| `theta` (ability) | Normal | `mu`, `sigma` | `mu=0, sigma=1` |
+| `eta` (rule difficulty) | Normal | `mu`, `sigma` | `mu=0, sigma=1` |
+| `alpha` (discrimination) | Half-Normal | `sigma` | `sigma=1` |
+
+Note: `alpha` uses a **half-Normal** prior (truncated at 0) to enforce
+positive discrimination. Only `sigma` is meaningful; `mu` is ignored.
+
+```{r, eval=FALSE}
+components <- list(global = c(1, 2, 3), local = c(4, 5))
+
+# Wider prior for discrimination
+fit_mltm <- MLTM(analogy, Q, components,
+                 iters = 2000, iter_warmup = 500, chains = 2,
+                 priors = list(
+                   theta = list(mu = 0, sigma = 1),
+                   alpha = list(sigma = 2)
+                 ))
+```
+
+### GMLTM-D priors
+
+The GMLTM-D adds a guessing parameter (`c`):
+
+| Parameter | Distribution | Hyperparameters | Default |
+|-----------|-------------|-----------------|---------|
+| `theta` (ability) | Normal | `mu`, `sigma` | `mu=0, sigma=1` |
+| `eta` (rule difficulty) | Normal | `mu`, `sigma` | `mu=0, sigma=1` |
+| `alpha` (discrimination) | Half-Normal | `sigma` | `sigma=1` |
+| `c` (guessing) | Beta | `shape1`, `shape2` | `shape1=3, shape2=20` |
+
+The default Beta(3, 20) prior for guessing concentrates probability
+below 0.20, consistent with typical multiple-choice guessing rates.
+
+```{r, eval=FALSE}
+# Default: Beta(3,20) — conservative guessing prior
+fit_gmltm <- GMLTM(analogy, Q, components,
+                   iters = 2000, iter_warmup = 500, chains = 2)
+
+# Uniform prior for guessing — no prior assumption
+fit_uniform_c <- GMLTM(analogy, Q, components,
+                       iters = 2000, iter_warmup = 500, chains = 2,
+                       priors = list(c = list(shape1 = 1, shape2 = 1)))
+
+# Moderately informative prior
+fit_moderate_c <- GMLTM(analogy, Q, components,
+                        iters = 2000, iter_warmup = 500, chains = 2,
+                        priors = list(c = list(shape1 = 2, shape2 = 10)))
+```
+
+### Prior sensitivity analysis
+
+A good practice is to refit the model with at least two different prior
+specifications and compare the posterior means:
+
+```{r, eval=FALSE}
+# Conservative priors
+fit_conservative <- LLTM(analogy, Q, chains = 2, iters = 2000,
+                         priors = list(eta = list(sigma = 1)))
+
+# Diffuse priors  
+fit_diffuse <- LLTM(analogy, Q, chains = 2, iters = 2000,
+                    priors = list(eta = list(sigma = 5)))
+
+# Compare eta estimates
+cbind(
+  conservative = fit_conservative$EAP$eta,
+  diffuse      = fit_diffuse$EAP$eta
+)
+```
+
+If the estimates are similar, your results are robust to prior choice.
+Large differences indicate the data are not very informative and 
+results should be interpreted with caution.
+
+### GMLTM1 and GMLTM2 default priors
+
+`GMLTM1` and `GMLTM2` use different defaults that reflect more or less
+informative prior assumptions:
+
+| Model | theta sigma | eta sigma | c prior |
+|-------|------------|-----------|---------|
+| GMLTM | 1 | 1 | Beta(3, 20) |
+| GMLTM1 | 2 | 2 | Beta(2, 5) |
+| GMLTM2 | 5 | 5 | Beta(1, 1) |
+
+These defaults represent a progression from more informative (GMLTM)
+to more diffuse (GMLTM2) priors. All can be overridden via `priors`.
+```
+
+---
+
+## Secuencia de comandos al terminar
+
+Después de todos los cambios anteriores, ejecuta en R:
+
+```r
+devtools::document()
+```
+
+Verifica que la salida NO incluya:
+- `grapes-or-or-grapes.Rd`
+- `grapes-plus-grapes.Rd`
+- Ningún ✖ en rojo
+
+Muestra el resumen final de archivos modificados.
